@@ -1,0 +1,18 @@
+1) The code is loaded at a location MPENTRY_PADDR which is below KERNBASE. MBOOTPHYS translates address from an offset of MPENTRY_PADDR to an offset of mpentry_start. The kernel was linked at KERNBASE and loaded at 0 but both 0-4MB  and KERNBASE-KERNBASE+4MB are mapped to same physical location in boot/boot.S . If we don't write MBOOTPHYS, the link and load address will be different and will give errors.
+
+2) Multiple stacks are needed because of multiple processes. If we have a single stack, then if we push trapframes and yield, other processes will be able to pop trap frames which do not belong to them and even the kernel lock will not be able to stop this. Consider this timeline for incorrect execution:
+	a) A is  going to kernel mode so it pushes trap frame and yields
+	b) B is going to kernel mode so it pushes trap frame and yields
+	c) C is going to kernel mode so it pushes trap frame and yields
+	d) B goes to user mode and pops frame
+
+	Here it can be seen that C gets frame of process B which is incorrect.
+
+3) The pointer e can be dereferenced both before and after lcr3() because in the virtual address space for all processes, the kernel is mapped to the same address. As this address is there in both virtual addresses, it is accessible.
+
+4) On context switching, we need the old registers so that when the environment is restored later. If we would not do this, then the registers would be overwritten by other environments which start running. The saving of registers is done by kernel when it switches from user mode to kernel mode and trap frame gets pushed to kernel stack.
+
+Learnings:
+- I learnt that every CPU has a set of its own system registers. These allow us to execute instructions on a CPU.
+- I learnt how efficient message passing takes place by passing page mapping which allows us to transfer data efficiently.
+- I learnt how we can handle page faults in user mode and not kernel mode by using user page fault handler instead of kernel for handling page fault of user.

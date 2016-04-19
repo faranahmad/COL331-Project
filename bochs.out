@@ -1,0 +1,10 @@
+6828 decimal is 15254 octal!
+Physical memory: 65536K available, base = 640K, extended = 64512K
+PAGE INFO SZ : 16384, 2
+basemem, 160, extmem , 160
+check_page_alloc() succeeded!
+check_page() succeeded!
+check_kern_pgdir() succeeded!
+check_page_installed_pgdir() succeeded!
+SMP: CPU 0 found 2 CPU(s)
+enabled interrupts: 1 2

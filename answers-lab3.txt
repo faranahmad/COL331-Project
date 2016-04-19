@@ -1,0 +1,18 @@
+1) There are a few reasons why separate interrupt handler functions are preferred.
+	a) For each interrupt the CPU pushes the error code on the stack (or the default 0 is pushed when there is no error code). In case there was only 1 handler then this would not be possible.
+
+	b) To distinguish between different interrupts, we use the value which is pushed on the stack by the traphandler functions in the trapentry.S file. If all exceptions would have the same handler then we wont be able to have the above provision.
+
+2) If the user code tries to run int 14, it fails to do as a privilege level of kern is required. Hence the general protection fault is generated to deal with the user code violating privilege stuff. User cannot be allowed to invoke kernel's handler as then the user will be able to do anything with the entire memory which is a security flaw.
+
+3) For a break point exception we need the DPL to be 3. If the IDT gate for breakpoint was set with DPL of 0 then we would generate a general protection fault instead of this breakpoint and hence defeat our goal.
+
+4) We want to ensure that the user is not able to take control of the entire memory and system. To do this we restrict arbitrary access for all interrupts. This mechanism implements protection and security.
+
+Challenge exercise:
+I have attempted the challenge exercise of exercise 4. In the code of exercise 4, I had originally written the SETGATE function explicitly each time. To shorten this, I declared an array of function pointers as an extern in trap.c The contents of this were declared in the trapentry.S file in the .data section. 
+
+Learning:
+1) I understood how OS implements protection of data. The user can only use 2 interrupts which are syscall and breakpoint. Through this, the user is not able to invoke a kernel's handler and hence protection is ensured.
+2) To solve the challenge part, I had to write assembly code for an array of function pointers. To do this, I wrote a C file and compiled it with -S and -m32 tag to generate the assembly code. I understood what was happening there to implement it in the assignment and solve the challenge part.
+3) I learned how OS implements checking of permissions at multiple stages. In the exercise 9 and 10, we had to implement this in multiple files and this gave me an understanding of its importance.

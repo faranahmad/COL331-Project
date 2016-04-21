@@ -264,6 +264,59 @@ umain(int argc, char **argv)
 					wait(x);
 			}
 		}
+		else if (strcmp(y1[0],"vm")==0)
+		{
+			// cprintf("Echo about to fork\n");
+			int x= fork();
+			if (x==0)
+			{
+
+				cprintf("In child with pid = %d and parent id = %d \n", thisenv->env_id, thisenv->env_parent_id);
+				// cprintf("Reached this place\n");
+				char* stringst;
+				size_t string_size = 0;
+				int i; 
+				for (i=0;i<x1;i++)
+				{
+					// string_size += 1 + strlen(y1[0]);
+					string_size += 1025;
+				}
+				// hello world
+				stringst = (char*) UTEMP + PGSIZE - string_size;
+				// argvst = (uintptr_t*) (ROUNDDOWN(stringst,4) -4* (2));
+				int r;
+
+				// cprintf("Reached this place as well\n");
+				r = sys_page_alloc(thisenv->env_id,(void*) UTEMP, PTE_P|PTE_U|PTE_W);
+				if (r<0)
+				{
+					panic("page alloc failed\n");
+				}
+
+				// cprintf("Reached this place as well dude\n");
+				
+				uintptr_t argvst[x1];
+
+				// cprintf("Reached this place as well dude max\n");
+
+				for (i=0;i<x1;i++)
+				{
+					argvst[i]= (uintptr_t) stringst;
+					strcpy(stringst,y1[i]);
+					// stringst+= 1+ strlen(y1[i]);
+					stringst += 1025;
+					// cprintf("Completed copying %d , stsize %d \n", i , stringst);
+				}
+				// cprintf("Reached this place as well man\n");
+				
+				sys_envreplace(6,(void*) argvst,actsz);
+			}
+			else
+			{
+				if (needbackground==0)
+					wait(x);
+			}
+		}
 		else if (strcmp(y1[0],"fibonacci")==0)
 		{
 			int x= fork();

@@ -120,3 +120,8 @@ int sys_envreplace(int functionnumber,void* args,int values)
 {
 	return syscall(SYS_envreplace,0,functionnumber,(uint32_t) args,values,0,0);
 }
+
+envid_t sys_env_makeguest(uint32_t physicalsz,uint32_t entryloc)
+{
+	return (envid_t) syscall(SYS_envmakeguest, 0, physicalsz, entryloc, 0, 0, 0);
+}

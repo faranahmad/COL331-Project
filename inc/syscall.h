@@ -18,6 +18,7 @@ enum {
 	SYS_ipc_recv,
 	SYS_envcreate,
 	SYS_envreplace,
+	SYS_envmakeguest,
 	NSYSCALLS
 };
 

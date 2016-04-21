@@ -50,6 +50,7 @@ KERN_BINFILES :=	user/hello \
 			user/cal \
 			user/echo \
 			user/date \
+			user/vm \
 			user/buggyhello \
 			user/buggyhello2 \
 			user/evilhello \
@@ -81,12 +82,15 @@ KERN_BINFILES +=	user/idle \
 			user/fairness \
 			user/pingpong \
 			user/pingpongs \
-			user/primes
+			user/primes \
+
 KERN_OBJFILES := $(patsubst %.c, $(OBJDIR)/%.o, $(KERN_SRCFILES))
 KERN_OBJFILES := $(patsubst %.S, $(OBJDIR)/%.o, $(KERN_OBJFILES))
 KERN_OBJFILES := $(patsubst $(OBJDIR)/lib/%, $(OBJDIR)/kern/%, $(KERN_OBJFILES))
 
 KERN_BINFILES := $(patsubst %, $(OBJDIR)/%, $(KERN_BINFILES))
+KERN_BINFILES +=  $(GUESTDIR)/$(OBJDIR)/kern/kernel \
+			$(GUESTDIR)/$(OBJDIR)/boot/boot
 
 
 # How to build kernel object files

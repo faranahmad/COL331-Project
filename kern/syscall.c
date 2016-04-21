@@ -23,6 +23,22 @@ sys_envcreate(void)
 }
 
 static int 
+sys_env_makeguest(uint32_t physicalsz, uint32_t entryloc)
+{
+	int r;
+	struct Env *e;
+
+	r = env_guest_alloc(&e, curenv->env_id);
+	if (r<0)
+		return r;
+
+	e->env_status = ENV_NOT_RUNNABLE;
+	e->env_extrainfo.physicalsz = physicalsz;
+	e->env_tf.tf_eip = entryloc;
+	return e->env_id;
+}
+
+static int 
 sys_envreplace(int x,void* args,int argc)
 {
 	char **argobt = (char**)args;
@@ -55,6 +71,13 @@ sys_envreplace(int x,void* args,int argc)
 	{
 		// cprintf("Entered echo case\n");
 		ENV_REPLACE(user_echo,ENV_TYPE_USER,argc,argobt);
+	}
+	else if (x==6)
+	{
+		// cprintf("Entered echo case\n");
+		ENV_REPLACE(user_vm,ENV_TYPE_GUEST,argc,argobt);
+		cprintf("Done with vm part");
+		// ENV_REPLACE(boot_boot,ENV_TYPE_GUEST,argc,argobt);
 	}
 
 	cprintf("Reached end of replace in sys call\n");
@@ -536,6 +559,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return sys_envcreate();
 	case SYS_envreplace:
 		return sys_envreplace(a1,(void*) a2, a3);
+	case SYS_envmakeguest:
+		return sys_env_makeguest(a1,a2);
 	default:
 		return -E_NO_SYS;
 	}

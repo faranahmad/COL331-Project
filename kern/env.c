@@ -132,6 +132,142 @@ env_init(void)
 	env_init_percpu();
 }
 
+
+
+
+
+int
+env_guest_alloc(struct Env **newenv_store, envid_t parent_id)
+{
+	int32_t generation;
+	struct Env *e;
+
+	if (!(e = env_free_list))
+	{
+		cprintf("Coudlnt get to env_free_list\n");
+		return -E_NO_FREE_ENV;
+	}
+
+	memset(&e->env_extrainfo, 0, sizeof(struct VMInfo));
+
+	// allocate a page for the EPT PML4..
+	struct PageInfo *p = NULL;
+
+
+	if (!(p = page_alloc(ALLOC_ZERO)))
+	{
+		cprintf("Could not alloc any page\n");
+		return -E_NO_MEM;
+	}
+
+	memset(p, 0, sizeof(struct PageInfo));
+	p->pp_ref       += 1;
+	e->env_pgdir    = page2kva(p);
+
+	cprintf("Done Page alloc for p\n");
+	// e->env_cr3      = page2pa(p);
+
+	// Allocate a VMCS.
+	// struct PageInfo *q = vmx_sinit_vmcs();
+	// if (!q) {
+	// 	page_decref(p);
+	// 	return -E_NO_MEM;
+	// }
+	// q->pp_ref += 1;
+	// e->env_extrainfo.vmcs = page2kva(q);
+
+	// Allocate a page for msr load/store area.
+	// struct PageInfo *r = NULL;
+	// if (!(r = page_alloc(ALLOC_ZERO))) {
+	// 	page_decref(p);
+	// 	page_decref(q);
+	// 	return -E_NO_MEM;
+	// }
+	// r->pp_ref += 1;
+	// e->env_extrainfo.msr_host_area = page2kva(r);
+	// e->env_extrainfo.msr_guest_area = page2kva(r) + PGSIZE / 2;
+
+	// Allocate pages for IO bitmaps.
+	struct PageInfo *s = NULL;
+	if (!(s = page_alloc(ALLOC_ZERO))) {
+		page_decref(p);
+		// page_decref(q);
+		// page_decref(r);
+		return -E_NO_MEM;
+	}
+	s->pp_ref += 1;
+	e->env_extrainfo.io_bmap_a = page2kva(s);
+
+
+	cprintf("Done Page alloc for s\n");
+
+	struct PageInfo *t = NULL;
+	if (!(t = page_alloc(ALLOC_ZERO))) {
+		page_decref(p);
+		// page_decref(q);
+		// page_decref(r);
+		page_decref(s);
+		return -E_NO_MEM;
+	}
+	t->pp_ref += 1;
+	e->env_extrainfo.io_bmap_b = page2kva(t);
+
+	cprintf("Done Page alloc for t\n");
+	// Generate an env_id for this environment.
+	generation = (e->env_id + (1 << ENVGENSHIFT)) & ~(NENV - 1);
+	if (generation <= 0)	// Don't create a negative env_id.
+		generation = 1 << ENVGENSHIFT;
+	e->env_id = generation | (e - envs);
+
+	// Set the basic status variables.
+	e->env_parent_id = parent_id;
+	e->env_type = ENV_TYPE_GUEST;
+	e->env_status = ENV_RUNNABLE;
+	e->env_runs = 0;
+
+	memset(&e->env_tf, 0, sizeof(e->env_tf));
+
+	e->env_pgfault_upcall = 0;
+	e->env_ipc_recving = 0;
+
+	// commit the allocation
+	env_free_list = e->env_link;
+	*newenv_store = e;
+
+	return 0;
+}
+
+void env_guest_free(struct Env *e) {
+	// Free the VMCS.
+	// page_decref(pa2page(PADDR(e->env_extrainfo.vmcs)));
+	// Free msr load/store area.
+	// page_decref(pa2page(PADDR(e->env_vmxinfo.msr_host_area)));
+	// Free IO bitmaps page.
+	page_decref(pa2page(PADDR(e->env_extrainfo.io_bmap_a)));
+	page_decref(pa2page(PADDR(e->env_extrainfo.io_bmap_b)));
+    
+	// Free the host pages that were allocated for the guest and 
+	// the EPT tables itself.
+	// free_guest_mem(e->env_pgdir);
+
+	// Free the EPT PML4 page.
+	// page_decref(pa2page(e->env_cr3));
+	e->env_pgdir = 0;
+	// e->env_cr3 = 0;
+
+	// return the environment to the free list
+	e->env_status = ENV_FREE;
+	e->env_link = env_free_list;
+	env_free_list = e;
+
+	cprintf("[%08x] free vmx guest env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
+}
+
+
+
+
+
+
 // Load GDT and segment descriptors.
 void
 env_init_percpu(void)

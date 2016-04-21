@@ -6,6 +6,7 @@
 #	http://aegis.sourceforge.net/auug97.pdf
 #
 OBJDIR := obj
+GUESTDIR := Virtual/Lab1
 
 ifdef LAB
 SETTINGLAB := true
@@ -115,7 +116,13 @@ include boot/Makefrag
 include kern/Makefrag
 include lib/Makefrag
 include user/Makefrag
+include Virtual/Makefrag
 # include fs/Makefrag
+
+
+# GUESTKERNELS = $(GUESTDIR)/$(OBJDIR)/kern/kernel
+# GUESTKERNELS += $(GUESTDIR)/$(OBJDIR)/boot/boot
+
 
 IMAGES = $(OBJDIR)/kern/bochs.img 
 
@@ -129,7 +136,7 @@ bochs: $(IMAGES) bochsrc
 
 # For deleting the build
 clean:
-	rm -rf $(OBJDIR)
+	rm -rf $(OBJDIR) $(GUESTDIR)/$(OBJDIR)
 
 realclean: clean
 	rm -rf lab$(LAB).tar.gz bochs.out bochs.log

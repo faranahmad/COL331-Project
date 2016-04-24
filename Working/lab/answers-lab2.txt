@@ -1,0 +1,71 @@
+Q1) The type of the variable x should be uintptr_t.
+Reason: 
+1. All addresses in any C program are virtual addresses and since value is a pointer which contains an address, therefore it should be type-casted to a variable of type uintptr_t
+(according to the syntax).
+2. If we keep the type of variable x to be physaddr_t and then try to dereference it, it will pass through the paging unit, and we will not get the results we intend to get
+
+Q2)
+Entry  	 Base Virtual address 						Points to(logically)
+1023		0xffc00000							Page table for top 4MB of physical memory
+1022		0xf8000000							Page table for second to top 4MB of phsyical memory
+..
+960			0xf0000000							Page table for [0-4MB] of physical memory
+959			0xefc00000							Page table for kernel stack and guard pages 
+958			0xef800000							Not mapped
+957			0xef400000							Curr. Page table
+956			0xef000000							User Pages
+..
+2			0x00800000							Not mapped
+1			0x00400000							Not mapped
+0			0x00000000							Not mapped
+
+
+Q3)
+The user program will not be able to read or write the kernel's memory as there is a user bit(PTE_U) which is set to 0 for the pages in the kernel memory.
+The pages for which PTE_U is set to 0 can only be accessed in privilege level 0,1,2 and cannot be accessed for reading and writing in privilege level 3(which is the privilege level of any user process).
+The mechanism which protects the kernel memory used it known as page level protection. 
+
+Q4)
+The maximum amount of physical memory that this operating system supports is 256MB.
+Reason: The whole physical memory needs to be mapped to region above KERNBASE, which has a size of(0xFFFFFFFF - 0xF0000000 = 256MB).
+We can't have more physical memory than this as sometimes, kernel only knows physical address of some of its data structures, but it needs to get its virtual address so that it can use it in a C program(as all variables in C program are virtual addresses). Therefore, for additional addresses in physical memory, kernel won't be able to get their V.A. just by adding KERNBASE as it will exceed 2^32.
+
+Q5)
+The space overhead for managing memory is of three things.
+These are page directory, page table, struct PageInfo.
+The maximum memory is 256MB.
+Size of page directory: 4KB (We only need one page directory)
+Size of page table: 4KB (Total no. of pages : 256*1024/4 = 65536, Therefore no. of page table = 65536*4/1024*4 = 64 page tables)
+Size of struct pageinfo: 8 bytes(size of pointer to page info + size of uint16_t = 6(which when rounded to multiple of 4 becomes 8))
+
+Therefore, total size of page directory = 4KB
+	Total size of page tables = 64 * 4KB = 256 KB
+	Total size of pageinfo = No of pages * size of struct pageinfo = 65536 * 8 = 512KB
+
+Therefore, total overhead = 512 + 256 + 4 = 772 KB
+
+This overhead can be broken down by the use of large pages(which have a size of 4MB). Therefore, size of page info will become 64*8 = 512 Bytes. We won't need page tables now. Therefore total overhead reduces to 4.5KB.
+But the issue of using large pages is that it creates problem of fragmentation.
+
+Q6)
+The point where we transition to running at an EIP above KERNBASE is when we jump to relocated label in entry.s using an direct(long) jump.
+The lines of code are:
+...
+
+mov $relocated, %eax
+jmp *%eax
+
+relocated:
+....
+
+The fact that both 0-4MB and KERNBASE - KERNBASE + 4MB is mapped to 0-4MB in physical memory allows us to continue executing at a low EIP between when we enable paging and when we begin running at an EIP above KERNBASE. 
+Reason:  Even if we have eip pointing to the lower memory region, we will get our code working since it is also mapped to the same region in physical memory as is the region above KERNBASE.
+This transition is necessary as in pmap.c, we are going to setup new page directory (kern_pgdir) which will replace entry_pgdir.
+This new page directory has mapping from (KERNBASE - KERNBASE + 4MB) to (0 - 4MB). The mapping of region of virtual address (0-4MB) is removed and is made available to user process.
+Now, if we get a v.a ranging from 0-4MB , we will not have physical address in the range (0-4MB). Therefore, this transition is required for the rest of the kernel code to work after we replace entry_pgdir by kern_pgdir.
+
+Short description about the learning from this lab:
+
+1. Final permission of a page is bitwise and of permissions of page directory and permissions of page table. Therefore, we can relax the permissions in page directory entry. Also I learned about how to do bitwise operations in C.
+2. While evaluating the size of struct Page Info, I learned that it is not actually the sum of sizes of individual elements of struct. The reason is that size of every object should be a multiple of 4 bytes. Therefore, padding needs to be done and way of padding varies with the compiler.
+3. We can't have any address as physical address in the C code. Therefore, when we return the pte_t* from pgdir_walk(), we first convert the address into kernel virtual address, so that it can be used further.

@@ -1,0 +1,36 @@
+Q1)
+- In mpentry.S, the code is linked to the address above KERNBASE, while it is loaded at the address below KERNBASE(at MPENTRY_PADDR). 
+- Therefore, rather than relying on the linker to do the required address translation, MPBOOTPHYS is used, which translates the address from an offset to mpentry_start to an offset from MPENTRY_PADDR.
+- It is not used in boot.S because in that the load and the link address were made same by the linker. Also, the kernel was linked above KERNBASE(starting from KERNBASE + 1MB), and was loaded at 1MB. 
+- Therefore, the required address translation was handled by page tables. As a result, we didn't require MPBOOTPHYS.
+- If we will not use it in mpentry.S, then link and load address will not be consistent, and as a result application processors would end up executing inappropriate code.
+
+
+Q2)
+- Big Kernel Lock provides protection against multiple processors executing kernel code at once, 
+- It does not provides protection against multiple processors interrupting and attempting to enter kernel space simultaneously.
+Therefore, a scenario in which using a shared kernel stack will go wrong, even with the protection of the big kernel lock:
+	- Process 1 enters kernel mode, pushes the trap frame, and yields
+    - Process 2 enters kernel mode, pushes the trap frame, and yields
+    - Process 1 leaves kernel mode and pops the trap frame
+What happens in this case is, process 2 overwrites the trap frame pushed by process 1 as the base pointer for both the process is same due to sharing of the kernel stack.
+Therefore, although Process 1 should have a pointer to the right trap frame, when it pops it will pop process 2's trap frame off the stack.
+
+Q3)
+- My code does not dereference 'e' after the call to lcr3.  
+- Instead, it stores 'e' into 'curenv', then references that. 
+- Even if we dereference e after calling lcr3, then no problem should happen as:
+ 	1. 'e' is a pointer allocated on the current processor's kernel stack.
+ 	2. Mapping of the kernel portion of the virtual address space is copied for all the processes.  
+ 	3. Thus, the variable 'e' can be dereferenced both before and after the virtual address change without any issue.
+
+Q4)
+- Whenever the kernel switches from one environment to another, it must ensure the old environment's registers are saved so they can be restored properly later.
+- It does this, so that environment can resume its execution after returning from the kernel stack as if it was never interrupted.
+- This happens when the environment switches from user mode to kernel mode. At this time, it pushes trap frame into kernel stack in the file trapentry.S.
+
+Learnings from this lab:
+1. Learned that we can have customized user pg-fault handler rather than kernel handling the page faults done by the user.
+2. Learned how to switch from kernel stack to user-exception stack and then how to switch from there to user stack, keeping in mind that we need to switch both esp and eip at the same time.
+3, Also, learned how interprocess communication works between process, and how can we transfer much more information using just 4 bytes by sending the address of the page we want to share.
+

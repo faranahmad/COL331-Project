@@ -1,0 +1,652 @@
+diff --git a/GNUmakefile b/GNUmakefile
+index 247b724..b9b7be3 100644
+--- a/GNUmakefile
++++ b/GNUmakefile
+@@ -97,7 +97,8 @@ all:
+ 
+ # make it so that no intermediate .o files are ever deleted
+ .PRECIOUS: %.o $(OBJDIR)/boot/%.o $(OBJDIR)/kern/%.o \
+-	$(OBJDIR)/lib/%.o $(OBJDIR)/fs/%.o $(OBJDIR)/user/%.o
++	$(OBJDIR)/lib/%.o $(OBJDIR)/fs/%.o $(OBJDIR)/net/%.o \
++	$(OBJDIR)/user/%.o
+ 
+ KERN_CFLAGS := $(CFLAGS) -DJOS_KERNEL -gstabs
+ USER_CFLAGS := $(CFLAGS) -DJOS_USER -gstabs
+@@ -115,14 +116,15 @@ include boot/Makefrag
+ include kern/Makefrag
+ include lib/Makefrag
+ include user/Makefrag
+-# include fs/Makefrag
++include fs/Makefrag
+ 
+-IMAGES = $(OBJDIR)/kern/bochs.img 
++IMAGES = $(OBJDIR)/kern/bochs.img $(OBJDIR)/fs/fs.img
+ 
+ bochsrc:
+ #	BOCHS expects absolute paths
+ 	$(eval KERN_PATH := $(shell pwd)/$(OBJDIR)/kern/kernel.img)
+-	sed -e "s,path_to_kernel_img,$(KERN_PATH),"  < $^ > $@
++	$(eval FS_PATH := $(shell pwd)/$(OBJDIR)/fs/fs.img)
++	sed -e "s,path_to_kernel_img,$(KERN_PATH)," -e "s,path_to_disk_img,$(FS_PATH)," < $^ > $@
+ 
+ bochs: $(IMAGES) bochsrc
+ 	bochs -q
+diff --git a/bochs.log b/bochs.log
+index 6567318..603a754 100644
+--- a/bochs.log
++++ b/bochs.log
+@@ -1,3 +1,3 @@
+ 00000000000e[PCSPK ] Failed to open /dev/console: Permission denied
+ 00000000000e[PCSPK ] Deactivating beep on console
+-12650143002p[      ] >>PANIC<< SIGNAL 2 caught
++00586974196p[      ] >>PANIC<< SIGNAL 2 caught
+diff --git a/bochsrc b/bochsrc
+index 357eee9..fbeb4d6 100644
+--- a/bochsrc
++++ b/bochsrc
+@@ -1,5 +1,5 @@
+ romimage: file=$BXSHARE/BIOS-bochs-latest
+-cpu: count=1, ips=10000000
++cpu: count=8, ips=10000000
+ megs: 32
+ vgaromimage: file=$BXSHARE/VGABIOS-lgpl-latest
+ vga: extension=none
+diff --git a/hypervisor/vmmonitor.c b/hypervisor/vmmonitor.c
+index 3d41849..547fc4e 100644
+--- a/hypervisor/vmmonitor.c
++++ b/hypervisor/vmmonitor.c
+@@ -1,9 +1,103 @@
++void host_init()
++{
++	
++}
++
++
+ void assembly_run(struct Trapframe *tf)
+ {
+ 	tf->tf_ds = curenv->env_runs;
+ 	tf->tf_es = 0;
++	asm(
++            "push %%edx; push %%ebp;"
++            "push %%ecx \n\t" /* placeholder for guest rcx */
++            "push %%ecx \n\t"
++	    /* Set the VMCS rsp to the current top of the frame. */
++		/* Taken completely from linux kvm */
++			//"cmp %%rsp, %c[host_rsp](%0) \n\t"
++			//"je 1f \n\t"
++			"mov %%esp, %c[host_esp](%0) \n\t"
++		    "vmwrite %%esp, %%edx \n\t"
++            /* Your code here */
++            "1: \n\t"
++            /* Reload cr2 if changed */
++            "mov %c[cr2](%0), %%eax \n\t"
++            "mov %%cr2, %%edx \n\t"
++            "cmp %%eax, %%edx \n\t"
++            "je 2f \n\t"
++            "mov %%eax, %%cr2 \n\t"
++            "2: \n\t"
++
++            "cmpl $1, %c[launched](%0) \n\t"
++            /* Load guest general purpose registers from the trap frame.  Don't clobber flags. 
++	     *
++	     */
++			"mov %c[eax](%0), %%eax \n\t"
++			"mov %c[ebx](%0), %%ebx \n\t"
++			"mov %c[edx](%0), %%edx \n\t"
++			"mov %c[esi](%0), %%esi \n\t"
++			"mov %c[edi](%0), %%edi \n\t"
++			"mov %c[ebp](%0), %%ebp \n\t"
++
++			"mov %c[ecx](%0), %%ecx \n\t" /* kills %0 (ecx) imp! */
++
++			"jne 1f \n\t"
++			"vmlaunch \n\t"
++			"jmp 2f \n\t"
++			"1: \n\t" 
++			"vmresume \n\t"
++			"2: \n\t"
++
++			".Lvmx_return: "
+ 
++	    /* POST VM EXIT... */
++            "mov %0, %c[wordsize](%%esp) \n\t"
++            "pop %0 \n\t"
++            /* Save general purpose guest registers and cr2 back to the trapframe.
++	     *
++	     * Be careful that the number of pushes (above) and pops are symmetrical.
++	     */
++	    /* Your code here */
++			"mov %%eax, %c[eax](%0) \n\t"
++			"mov %%ebx, %c[ebx](%0) \n\t"
++			"pop %c[ecx](%0) \n\t"
++			"mov %%edx, %c[edx](%0) \n\t"
++			"mov %%esi, %c[esi](%0) \n\t"
++			"mov %%edi, %c[edi](%0) \n\t"
++			"mov %%ebp, %c[ebp](%0) \n\t"
+ 
++			"mov %%cr2, %%eax   \n\t"
++			"mov %%eax, %c[cr2](%0) \n\t"
++            
++			"pop  %%ebp; pop  %%edx \n\t"
++
++			"setbe %c[fail](%0) \n\t"
++            : : "c"(tf), "d"((unsigned long)HOST_ESP), 
++            [launched]"i"(offsetof(struct Trapframe, tf_ds)),
++            [fail]"i"(offsetof(struct Trapframe, tf_es)),
++			[host_esp]"i"(offsetof(struct Trapframe, tf_esp)),
++            [eax]"i"(offsetof(struct Trapframe, tf_regs.reg_eax)),
++            [ebx]"i"(offsetof(struct Trapframe, tf_regs.reg_ebx)),
++            [ecx]"i"(offsetof(struct Trapframe, tf_regs.reg_ecx)),
++            [edx]"i"(offsetof(struct Trapframe, tf_regs.reg_edx)),
++            [esi]"i"(offsetof(struct Trapframe, tf_regs.reg_esi)),
++            [edi]"i"(offsetof(struct Trapframe, tf_regs.reg_edi)),
++            [ebp]"i"(offsetof(struct Trapframe, tf_regs.reg_ebp)),
++            [cr2]"i"(offsetof(struct Trapframe, tf_err)),
++            [wordsize]"i"(sizeof(uint32_t))
++                : "cc", "memory"
++                    , "eax", "ebx", "edi", "esi"
++    );
++	if(tf->tf_es)
++	{
++		cprintf("Error\n");
++	}
++	else
++	{
++		curenv -> env_tf.tf_esp = GUEST_ESP;
++		curenv -> env_tf.tf_eip = GUEST_EIP;
++		vmexit();
++	}
+ }
+ 
+ struct PageInfo* vmx_init_vmcs()
+@@ -15,6 +109,7 @@ struct PageInfo* vmx_init_vmcs()
+ 	}
+ 	return p;
+ }
++
+ int virtualmachinerun(struct Env *e)
+ {
+ 	if(e->env_type != ENV_TYPE_VIRTUAL)
+@@ -43,5 +138,5 @@ int virtualmachinerun(struct Env *e)
+ 	curenv -> env_tf.tf_esp = GUEST_ESP;  // see what is this
+ 	curenv -> env_tf.tf_eip = GUEST_EIP;  // see what is this
+ 	assembly_run(&e->env_tf);
+-	}
++	return 0;
+ }
+\ No newline at end of file
+diff --git a/inc/env.h b/inc/env.h
+index cda5008..62d6e03 100644
+--- a/inc/env.h
++++ b/inc/env.h
+@@ -41,6 +41,8 @@ enum {
+ // Special environment types
+ enum EnvType {
+ 	ENV_TYPE_USER = 0,
++	ENV_TYPE_IDLE,
++	ENV_TYPE_FS,		// File system server
+ };
+ 
+ struct Env {
+diff --git a/inc/error.h b/inc/error.h
+index 8d2bf9b..85c9f6b 100644
+--- a/inc/error.h
++++ b/inc/error.h
+@@ -4,7 +4,7 @@
+ #define JOS_INC_ERROR_H
+ 
+ enum {
+-	// Kernel error codes -- keep in sync with list in lib/printfmt.c.
++// Kernel error codes -- keep in sync with list in lib/printfmt.c.
+ 	E_UNSPECIFIED	= 1,	// Unspecified or unknown problem
+ 	E_BAD_ENV	= 2,	// Environment doesn't exist or otherwise
+ 				// cannot be used in requested action
+@@ -13,10 +13,18 @@ enum {
+ 	E_NO_FREE_ENV	= 5,	// Attempt to create a new environment beyond
+ 				// the maximum allowed
+ 	E_FAULT		= 6,	// Memory fault
+-	E_NO_SYS	= 7,	// Unimplemented system call
+ 
+-	E_IPC_NOT_RECV	= 8,	// Attempt to send to env that is not recving
+-	E_EOF		= 9,	// Unexpected end of file
++	E_IPC_NOT_RECV	= 7,	// Attempt to send to env that is not recving
++	E_EOF		= 8,	// Unexpected end of file
++
++	// File system error codes -- only seen in user-level
++	E_NO_DISK	= 9,	// No free space left on disk
++	E_MAX_OPEN	= 10,	// Too many files are open
++	E_NOT_FOUND	= 11, 	// File or block not found
++	E_BAD_PATH	= 12,	// Bad path
++	E_FILE_EXISTS	= 13,	// File already exists
++	E_NOT_EXEC	= 14,	// File not a valid executable
++	E_NOT_SUPP	= 15,	// Operation not supported
+ 
+ 	MAXERROR
+ };
+diff --git a/inc/lib.h b/inc/lib.h
+index 2d3c26b..f14d6a8 100644
+--- a/inc/lib.h
++++ b/inc/lib.h
+@@ -17,6 +17,9 @@
+ #include <inc/memlayout.h>
+ #include <inc/syscall.h>
+ #include <inc/trap.h>
++#include <inc/fs.h>
++#include <inc/fd.h>
++#include <inc/args.h>
+ 
+ #define USED(x)		(void)(x)
+ 
+@@ -46,6 +49,7 @@ int	sys_env_destroy(envid_t);
+ void	sys_yield(void);
+ static envid_t sys_exofork(void);
+ int	sys_env_set_status(envid_t env, int status);
++int	sys_env_set_trapframe(envid_t env, struct Trapframe *tf);
+ int	sys_env_set_pgfault_upcall(envid_t env, void *upcall);
+ int	sys_page_alloc(envid_t env, void *pg, int perm);
+ int	sys_page_map(envid_t src_env, void *src_pg,
+@@ -77,6 +81,30 @@ envid_t	ipc_find_env(enum EnvType type);
+ envid_t	fork(void);
+ envid_t	sfork(void);	// Challenge!
+ 
++// fd.c
++int	close(int fd);
++ssize_t	read(int fd, void *buf, size_t nbytes);
++ssize_t	write(int fd, const void *buf, size_t nbytes);
++int	seek(int fd, off_t offset);
++void	close_all(void);
++ssize_t	readn(int fd, void *buf, size_t nbytes);
++int	dup(int oldfd, int newfd);
++int	fstat(int fd, struct Stat *statbuf);
++int	stat(const char *path, struct Stat *statbuf);
++
++// file.c
++int	open(const char *path, int mode);
++int	ftruncate(int fd, off_t size);
++int	remove(const char *path);
++int	sync(void);
++
++// pageref.c
++int	pageref(void *addr);
++
++
++// spawn.c
++envid_t	spawn(const char *program, const char **argv);
++envid_t	spawnl(const char *program, const char *arg0, ...);
+ 
+ 
+ /* File open modes */
+diff --git a/inc/syscall.h b/inc/syscall.h
+index 2ba73e2..1bfb2c9 100644
+--- a/inc/syscall.h
++++ b/inc/syscall.h
+@@ -12,6 +12,7 @@ enum {
+ 	SYS_page_unmap,
+ 	SYS_exofork,
+ 	SYS_env_set_status,
++	SYS_env_set_trapframe,
+ 	SYS_env_set_pgfault_upcall,
+ 	SYS_yield,
+ 	SYS_ipc_try_send,
+diff --git a/kern/Makefrag b/kern/Makefrag
+index 51fd95d..bf5f5b5 100644
+--- a/kern/Makefrag
++++ b/kern/Makefrag
+@@ -76,6 +76,13 @@ KERN_BINFILES +=	user/idle \
+ 			user/pingpong \
+ 			user/pingpongs \
+ 			user/primes
++
++			# Binary files for LAB5
++KERN_BINFILES +=	user/testfile \
++			user/writemotd \
++			user/icode \
++			fs/fs
++			
+ KERN_OBJFILES := $(patsubst %.c, $(OBJDIR)/%.o, $(KERN_SRCFILES))
+ KERN_OBJFILES := $(patsubst %.S, $(OBJDIR)/%.o, $(KERN_OBJFILES))
+ KERN_OBJFILES := $(patsubst $(OBJDIR)/lib/%, $(OBJDIR)/kern/%, $(KERN_OBJFILES))
+diff --git a/kern/cpu.h b/kern/cpu.h
+index 7baec54..c3c58c5 100644
+--- a/kern/cpu.h
++++ b/kern/cpu.h
+@@ -8,7 +8,7 @@
+ #include <inc/env.h>
+ 
+ // Maximum number of CPUs
+-#define NCPU  1
++#define NCPU  8
+ 
+ // Values of status in struct Cpu
+ enum {
+diff --git a/kern/env.c b/kern/env.c
+index e834049..3d0c562 100644
+--- a/kern/env.c
++++ b/kern/env.c
+@@ -448,6 +448,10 @@ env_create(uint8_t *binary, enum EnvType type)
+ 	}
+ 	// cprintf("Env created\n");
+ 	e->env_type = type;
++	if (type == ENV_TYPE_FS) {
++        // the following line avoid a General Protection fault
++	    e->env_tf.tf_eflags |= FL_IOPL_MASK; // 0x00003000 // I/O Privilege Level bitmask
++    }
+ }
+ 
+ //
+diff --git a/kern/init.c b/kern/init.c
+index d2e8c5e..ca09bc0 100644
+--- a/kern/init.c
++++ b/kern/init.c
+@@ -54,18 +54,25 @@ i386_init(void)
+ 	lock_kernel();
+ 	// Starting non-boot CPUs
+ 	boot_aps();
++
++	// Should always have idle processes at first.
++	int i;
++	for (i = 0; i < NCPU; i++)
++		ENV_CREATE(user_idle, ENV_TYPE_IDLE);
++
++	// Start fs.
++	ENV_CREATE(fs_fs, ENV_TYPE_FS);
++
+ #if defined(TEST)
+ 	// Don't touch -- used by grading script!
+ 	ENV_CREATE(TEST, ENV_TYPE_USER);
+ #else
+ 	// Touch all you want.
+-	ENV_CREATE(user_hello, ENV_TYPE_USER);
+-	// int i;
+-	// for(i=0;i<3;i++){
+-		// ENV_CREATE(user_yield,ENV_TYPE_USER);
+-	// }
++	// ENV_CREATE(user_writemotd, ENV_TYPE_USER);
++	// ENV_CREATE(user_testfile, ENV_TYPE_USER);
++	ENV_CREATE(user_icode, ENV_TYPE_USER);
+ #endif // TEST*
+-
++	
+ 	// cprintf("I am here\n");
+ 	// Schedule and run the first user environment!
+ 	sched_yield();
+diff --git a/kern/sched.c b/kern/sched.c
+index 850a1a4..7699304 100644
+--- a/kern/sched.c
++++ b/kern/sched.c
+@@ -12,6 +12,7 @@ void
+ sched_yield(void)
+ {
+ 	struct Env *idle;
++	int i;
+ 
+ 	// Implement simple round-robin scheduling.
+ 	//
+@@ -24,63 +25,60 @@ sched_yield(void)
+ 	// choose that environment.
+ 	//
+ 	// Never choose an environment that's currently running on
+-	// another CPU (env_status == ENV_RUNNING). If there are
++	// another CPU (env_status == ENV_RUNNING) and never choose an
++	// idle environment (env_type == ENV_TYPE_IDLE).  If there are
+ 	// no runnable environments, simply drop through to the code
+-	// below to halt the cpu.
++	// below to switch to this CPU's idle environment.
+ 
+ 	// LAB 4: Your code here.
+-	int index;
+-	int temp_index;
+-	if(thiscpu -> cpu_env == NULL){
+-		index = 0;
+-		temp_index = 0;
+-		// cprintf("Index: %d\n",index);
+-	}
+-	else{
+-		index = ENVX(thiscpu -> cpu_env -> env_id);
+-		temp_index = index;
+-		index = (index + 1)%NENV;
+-	}
++	uint32_t envid = thiscpu->cpu_env ? ENVX(thiscpu->cpu_env->env_id) : 0;
++	uint32_t first_eid = (++envid) % NENV;
++	uint32_t next_envid;
+ 
+-	int count = 0;
+-	int found = 0;
+-	struct Env *e;
+-	// cprintf("Cpu_id: %d\n",);
+-	// cprintf("here id: %d\n",temp_store->env_id);
+-	while(count < NENV -1 ){
+-		if(envs[(index)%NENV].env_status == ENV_RUNNABLE){
+-			found = 1;
+-			e = &envs[(index)%NENV];
+-			// cprintf("Count: %d\n",count);
++	// case: env status is RUNNABLE
++	for (i = 0; i < NENV; i++) {
++		next_envid = (first_eid+i) % NENV;
++		if (envs[next_envid].env_type != ENV_TYPE_IDLE && 
++		    envs[next_envid].env_status == ENV_RUNNABLE) {
++			//DEBUGING: cprintf("envrun RUNNABLE: %d\n", next_envid);
++			env_run(&envs[next_envid]);
+ 			break;
+ 		}
+-		index ++;
+-		count ++;
+-	}
+-	// cprintf("In sched_yield: %d\n",found);
+-	if(found == 0){
+-		// cprintf("Starting the env first\n");
+-		// cprintf("Temp index : %d\n",temp_index);
+-		// cprintf("Status: %d\n",envs[temp_index].env_status);
+-		if(envs[temp_index].env_status == ENV_RUNNING){
+-			e = &envs[temp_index];
+-			env_run(e);
+-			// return;
+-		}
+-		else{
+-			// cprintf("halting the env\n");
+-			sched_halt();
++	}	
++
++	// case: env status is RUNNING
++	for (i = 0; i < NENV; i++) {
++		next_envid = (first_eid+i) % NENV;
++		if (envs[next_envid].env_type != ENV_TYPE_IDLE && 
++		    envs[next_envid].env_status == ENV_RUNNING &&
++		    envs[next_envid].env_cpunum == cpunum()) {
++			//DEBUGING cprintf("envrun RUNNING: %d\n", next_envid);
++			env_run(&envs[next_envid]);
++			break;
+ 		}
+-	}
+-	else{
+-		// cprintf("Starting the env\n");
+-		env_run(e);
+-	}
+-	// cprintf("here\n");
++	}	
+ 
++	// For debugging and testing purposes, if there are no
++	// runnable environments other than the idle environments,
++	// drop into the kernel monitor.
++	/* for (i = 0; i < NENV; i++) {
++		if (envs[i].env_type != ENV_TYPE_IDLE &&
++		    (envs[i].env_status == ENV_RUNNABLE ||
++		     envs[i].env_status == ENV_RUNNING))
++			break;
++	} 
++	if (i == NENV) {
++		cprintf("No more runnable environments!\n");
++		while (1)
++			monitor(NULL);
++	} */
+ 
+-	// sched_halt never returns
+-	// sched_halt();
++	//DEBUGING: cprintf("envrun idle on cpu %d\n", cpunum());
++	// Run this CPU's idle environment when nothing else is runnable.
++	idle = &envs[cpunum()];
++	if (!(idle->env_status == ENV_RUNNABLE || idle->env_status == ENV_RUNNING))
++		sched_halt();
++	env_run(idle);
+ }
+ 
+ // Halt this CPU when there is nothing to do. Wait until the
+diff --git a/kern/syscall.c b/kern/syscall.c
+index 74873fc..931f7f7 100644
+--- a/kern/syscall.c
++++ b/kern/syscall.c
+@@ -130,6 +130,24 @@ sys_env_set_status(envid_t envid, int status)
+ 	// panic("sys_env_set_status not implemented");
+ }
+ 
++static int
++sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
++{
++	// LAB 5: Your code here.
++	// Remember to check whether the user has supplied us with a good
++	// address!
++    struct Env *e;
++    if (envid2env(envid, &e, 1) < 0)
++        return -E_BAD_ENV;
++
++    if ((tf->tf_eip >= UTOP)) 
++        return -1;
++
++    e->env_tf = *tf;
++    e->env_tf.tf_eflags |= FL_IF;
++    return 0;
++}
++
+ // Set the page fault upcall for 'envid' by modifying the corresponding struct
+ // Env's 'env_pgfault_upcall' field.  When 'envid' causes a page fault, the
+ // kernel will push a fault record onto the exception stack, then branch to
+@@ -354,6 +372,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
+ 		return -E_BAD_ENV;
+ 	}
+ 	if(target -> env_ipc_recving == 0){
++		cprintf("Source va: %x\n",srcva);
+ 		return -E_IPC_NOT_RECV;
+ 	}
+ 	uintptr_t va = (uintptr_t)srcva;
+@@ -361,7 +380,6 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
+ 		return -E_INVAL;
+ 	}
+ 	void* dstva = target -> env_ipc_dstva;
+-	// cprintf("Source va: %x\n",srcva);
+ 	if((uintptr_t)dstva < UTOP && (uintptr_t)srcva < UTOP){
+ 		if((perm & ~PTE_SYSCALL) || !(perm & PTE_U) || !(perm & PTE_P)){
+ 			//cprintf("Checking Permissions\n");
+@@ -465,6 +483,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4,
+ 			return sys_ipc_try_send((envid_t)a1,a2,(void*)a3,a4);
+ 		case SYS_ipc_recv:
+ 			return sys_ipc_recv((void*)a3);
++		case SYS_env_set_trapframe:
++        	return sys_env_set_trapframe(a1, (struct Trapframe *)a2);
+ 		default:
+ 			return -E_INVAL;
+ 	}
+diff --git a/lib/Makefrag b/lib/Makefrag
+index 7710df3..3c76bfc 100644
+--- a/lib/Makefrag
++++ b/lib/Makefrag
+@@ -16,6 +16,14 @@ LIB_SRCFILES :=		$(LIB_SRCFILES) \
+ 			lib/fork.c \
+ 			lib/ipc.c
+ 
++LIB_SRCFILES :=		$(LIB_SRCFILES) \
++			lib/args.c \
++			lib/fd.c \
++			lib/file.c \
++			lib/fprintf.c \
++			lib/pageref.c \
++			lib/spawn.c			
++
+ 
+ 
+ LIB_OBJFILES := $(patsubst lib/%.c, $(OBJDIR)/lib/%.o, $(LIB_SRCFILES))
+diff --git a/lib/exit.c b/lib/exit.c
+index 85c64d6..cee3336 100644
+--- a/lib/exit.c
++++ b/lib/exit.c
+@@ -4,6 +4,7 @@
+ void
+ exit(void)
+ {
++	close_all();
+ 	sys_env_destroy(0);
+ }
+ 
+diff --git a/lib/ipc.c b/lib/ipc.c
+index 17cab17..8b0e11f 100644
+--- a/lib/ipc.c
++++ b/lib/ipc.c
+@@ -65,26 +65,17 @@ void
+ ipc_send(envid_t to_env, uint32_t val, void *pg, int perm)
+ {
+ 	// LAB 4: Your code here.
+-	void *srcva;
+-	if(!pg){
+-		srcva = (void*)UTOP;
+-		perm = 0;
+-	}
+-	else{
+-		srcva = pg;
+-	}
+-	int p;
+-	while(1){
+-		p = sys_ipc_try_send(to_env,val,srcva,perm);
+-		// cprintf("I am here\n");
+-		if(p == 0){
+-			// cprintf("in ipc_send: %d\n",p);
+-			break;
+-		}
+-		else if(p != -E_IPC_NOT_RECV){
+-			panic("Error %e",p);
+-		}
+-		sys_yield();
++	int r;
++	// LAB 4: Your code here.
++	cprintf("in ipc_send\n");
++	while (1) {
++	    r = sys_ipc_try_send(to_env, val, pg ? pg : (void *) UTOP, perm);
++	    if (!r) {
++            break;
++        } else if (r != -E_IPC_NOT_RECV)
++	    	panic("ipc_send: error %e", r);
++
++        sys_yield();
+ 	}
+ 	// panic("ipc_send not implemented");
+ }
+diff --git a/lib/printfmt.c b/lib/printfmt.c
+index cda31fe..838f0ce 100644
+--- a/lib/printfmt.c
++++ b/lib/printfmt.c
+@@ -28,6 +28,13 @@ static const char * const error_string[MAXERROR] =
+ 	[E_FAULT]	= "segmentation fault",
+ 	[E_IPC_NOT_RECV]= "env is not recving",
+ 	[E_EOF]		= "unexpected end of file",
++	[E_NO_DISK]	= "no free space on disk",
++	[E_MAX_OPEN]	= "too many files are open",
++	[E_NOT_FOUND]	= "file or block not found",
++	[E_BAD_PATH]	= "invalid path",
++	[E_FILE_EXISTS]	= "file already exists",
++	[E_NOT_EXEC]	= "file is not a valid executable",
++	[E_NOT_SUPP]	= "operation not supported",
+ };
+ 
+ /*
+diff --git a/lib/syscall.c b/lib/syscall.c
+index d34b365..6b2c285 100644
+--- a/lib/syscall.c
++++ b/lib/syscall.c
+@@ -111,3 +111,8 @@ sys_ipc_recv(void *dstva)
+ 	return syscall(SYS_ipc_recv, 1, (uint32_t)dstva, 0, 0, 0, 0);
+ }
+ 
++int
++sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
++{
++	return syscall(SYS_env_set_trapframe, 1, envid, (uint32_t) tf, 0, 0, 0);
++}
+\ No newline at end of file

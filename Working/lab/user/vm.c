@@ -10,12 +10,12 @@ static int
 map_guest(envid_t guest,uintptr_t guestpa, size_t memsz,int fd, size_t filesz,off_t fileoffset)
 {
 	int i,r=0;
-	if ((i = PGOFF(guestpa))) {
-		guestpa -= i;
-		memsz += i;
-		filesz += i;
-		fileoffset -= i;
-	}
+	// if ((i = PGOFF(guestpa))) {
+	// 	guestpa -= i;
+	// 	memsz += i;
+	// 	filesz += i;
+	// 	fileoffset -= i;
+	// }
 
 	for (i = 0; i < memsz; i += PGSIZE) {
 		if (i >= filesz) {
@@ -85,6 +85,13 @@ void umain(int argc, char** argv)
 		exit();
 	}
 	guest = ret;
+
+	int i=0;
+	for (;i<1024;i++)
+	{
+		sys_page_alloc(guest,(void*) (i*4*1024),PTE_P|PTE_U|PTE_W);
+	}
+
 	if((ret = copy_kernel(guest,GUEST_KERN)) < 0)
 	{
 		cprintf("Error copying page into the guest - %d\n.", ret);

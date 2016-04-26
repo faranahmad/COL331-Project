@@ -247,6 +247,119 @@ print_regs(struct PushRegs *regs)
 static void
 trap_dispatch(struct Trapframe *tf)
 {
+
+
+
+
+
+
+	if (curenv->env_type == ENV_TYPE_GUEST)
+	{
+		// unsigned int mask = (1<<31);
+		// mask -=1;
+		// mask = (mask >>2);
+		// mask = (mask <<2);
+		// print_trapframe(tf);
+		// curenv->env_tf.tf_cs &= mask;
+		// lcr3(PADDR(curenv->env_pgdir));
+		// cprintf("It is guest thingy, need to handle %d , eip is %08x, command is %08x, cs is %d\n", tf->tf_trapno,  curenv->env_tf.tf_eip,*(uint32_t *) (0*curenv->env_tf.tf_cs + curenv->env_tf.tf_eip), curenv->env_tf.tf_cs);
+		if (*(uint8_t *) (0*curenv->env_tf.tf_cs + curenv->env_tf.tf_eip) == 0xfa)
+		{
+			cprintf("This is cli\n");
+
+			// tf->tf_eflags &= ~FL_IF;
+
+			// curenv->env_tf.tf_eip =  (uint32_t) (((uint8_t*) curenv->env_tf.tf_eip)	+ 1);
+			curenv->env_tf.tf_eip =  0x00100000;
+			
+			cprintf("Final eip %08x \n", curenv->env_tf.tf_eip);
+			return;
+		}
+		if (*(uint8_t *) (0*curenv->env_tf.tf_cs + curenv->env_tf.tf_eip) == 0xec)
+		{
+			// cprintf("This is in\n");
+			int val = curenv->env_tf.tf_regs.reg_edx;
+			int temp;
+			asm volatile("pushal \n");
+			asm volatile("in (%%dx), %%al\n"
+				: "=a" (temp)
+				: "d" (val)
+				: "cc", "memory"
+				);
+			// asm volatile("in (%%edx) %%al \n");
+			// asm volatile("movl %%eax, %0\n"
+				// : "=b" (temp)
+				// : 
+				// : "cc", "memory"
+				// );
+			asm volatile("popal \n");
+			
+			curenv->env_tf.tf_regs.reg_eax = temp;
+				// "popal \n\t"
+				// );
+			// tf->tf_eflags &= ~FL_IF;
+
+			curenv->env_tf.tf_eip =  (uint32_t) (((uint8_t*) curenv->env_tf.tf_eip)	+ 1);
+			// curenv->env_tf.tf_eip =  0x00100000;
+			
+			// cprintf("Final eip %08x \n", curenv->env_tf.tf_eip);
+			return;
+		}
+		else if (*(uint8_t *) (0*curenv->env_tf.tf_cs + curenv->env_tf.tf_eip) == 0xee)
+		{
+			// cprintf("This is out\n");
+			int val = curenv->env_tf.tf_regs.reg_eax;
+			int temp = curenv->env_tf.tf_regs.reg_edx;
+			int temp1;
+			asm volatile("pushal \n");
+			asm volatile("out %%al, (%%dx)\n"
+				: "=d" (temp1)
+				: "a" (val) ,
+				  "d" (temp)
+				: "cc", "memory"
+				);
+			// asm volatile("in (%%edx) %%al \n");
+			// asm volatile("movl %%eax, %0\n"
+				// : "=b" (temp)
+				// : 
+				// : "cc", "memory"
+				// );
+			asm volatile("popal \n");
+			
+			// *(uint32_t *) (curenv->env_tf.tf_regs.reg_edx) = temp;
+				// "popal \n\t"
+				// );
+			// tf->tf_eflags &= ~FL_IF;
+
+			curenv->env_tf.tf_eip =  (uint32_t) (((uint8_t*) curenv->env_tf.tf_eip)	+ 1);
+			// curenv->env_tf.tf_eip =  0x00100000;
+			
+			// cprintf("Final eip %08x \n", curenv->env_tf.tf_eip);
+			return;
+		}
+		else if  (*(uint16_t *) (0*curenv->env_tf.tf_cs + curenv->env_tf.tf_eip) == 0xd08e)
+		{
+			// curenv->env_tf.tf_ss = curenv->env_tf.tf_regs.reg_eax;
+			curenv->env_tf.tf_eip =  (uint32_t) (((uint16_t*) curenv->env_tf.tf_eip)	+ 1);
+			cprintf("Final eip %08x \n", curenv->env_tf.tf_eip);
+			return;	
+		}
+		else if  (*(uint32_t *) (0*curenv->env_tf.tf_cs + curenv->env_tf.tf_eip) == 0x0dc0200f)
+		{
+			cprintf("In this thingy\n");
+			curenv->env_tf.tf_eip =  0x00100028;
+			return;
+			// curenv->env_tf.tf_cs = 
+		}		
+		// curenv->env_tf.tf_eip+=1;
+		// lcr3(PADDR(kern_pgdir));
+		// return;
+	}
+
+
+
+
+
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
 	// cprintf("Trap no.: %d\n",tf->tf_trapno);
@@ -286,6 +399,7 @@ trap_dispatch(struct Trapframe *tf)
 		sched_yield();
 	}
 	// Unexpected trap: The user process or the kernel has a bug.
+	
 	cprintf("i m here\n");
 	print_trapframe(tf);
 	if (tf->tf_cs == GD_KT)

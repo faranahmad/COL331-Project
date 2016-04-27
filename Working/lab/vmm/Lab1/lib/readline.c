@@ -7,6 +7,7 @@ static char buf[BUFLEN];
 char *
 readline(const char *prompt)
 {
+	cprintf("Entered readline\n");
 	int i, c, echoing;
 
 	if (prompt != NULL)
@@ -14,8 +15,10 @@ readline(const char *prompt)
 
 	i = 0;
 	echoing = iscons(0);
+	echoing = 1;
 	while (1) {
 		c = getchar();
+		cprintf("Read a char %e\n", c);
 		if (c < 0) {
 			cprintf("read error: %e\n", c);
 			return NULL;

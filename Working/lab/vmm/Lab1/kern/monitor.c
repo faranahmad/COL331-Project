@@ -69,7 +69,9 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
   	__asm __volatile("movl $.,%0" : "=r" (eip));
   // __asm__volatile("")
   	cprintf("current eip= %08x\n",eip);
+  	// cprintf("Entering debug info\n");
   	debuginfo_eip (eip, &info);
+  	// cprintf("Done with debug info\n");
   	cprintf ("		%s:%d: ", info.eip_file, info.eip_line);
     for (i=0; i<info.eip_fn_namelen; i++)
       		cprintf ("%c", info.eip_fn_name[i]);
@@ -145,7 +147,7 @@ monitor(struct Trapframe *tf)
 {
 	char *buf;
 
-	cprintf("Welcome to the JOS kernel monitor!\n");
+	cprintf("Welcome to the Guest JOS kernel monitor!\n");
 	cprintf("Type 'help' for a list of commands.\n");
 
 

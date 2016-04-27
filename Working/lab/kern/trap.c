@@ -266,10 +266,10 @@ trap_dispatch(struct Trapframe *tf)
 		if (*(uint8_t *) (0*curenv->env_tf.tf_cs + curenv->env_tf.tf_eip) == 0xfa)
 		{
 			cprintf("This is cli\n");
-
 			// tf->tf_eflags &= ~FL_IF;
-
 			// curenv->env_tf.tf_eip =  (uint32_t) (((uint8_t*) curenv->env_tf.tf_eip)	+ 1);
+			
+			// Jumping to kernel
 			curenv->env_tf.tf_eip =  0x00100000;
 			
 			cprintf("Final eip %08x \n", curenv->env_tf.tf_eip);
@@ -279,11 +279,14 @@ trap_dispatch(struct Trapframe *tf)
 		{
 			// cprintf("This is in\n");
 			int val = curenv->env_tf.tf_regs.reg_edx;
+			int vala = curenv->env_tf.tf_regs.reg_eax;
+			
 			int temp;
 			asm volatile("pushal \n");
 			asm volatile("in (%%dx), %%al\n"
 				: "=a" (temp)
-				: "d" (val)
+				: "a" (vala) ,
+				  "d" (val)
 				: "cc", "memory"
 				);
 			// asm volatile("in (%%edx) %%al \n");
@@ -293,7 +296,7 @@ trap_dispatch(struct Trapframe *tf)
 				// : "cc", "memory"
 				// );
 			asm volatile("popal \n");
-			
+			// cprintf("Temp obtained is %d\n",temp);
 			curenv->env_tf.tf_regs.reg_eax = temp;
 				// "popal \n\t"
 				// );
@@ -346,7 +349,7 @@ trap_dispatch(struct Trapframe *tf)
 		}
 		else if  (*(uint32_t *) (0*curenv->env_tf.tf_cs + curenv->env_tf.tf_eip) == 0x0dc0200f)
 		{
-			cprintf("In this thingy\n");
+			// cprintf("In this thingy\n");
 			curenv->env_tf.tf_eip =  0x00100028;
 			return;
 			// curenv->env_tf.tf_cs = 

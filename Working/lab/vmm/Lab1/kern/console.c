@@ -438,11 +438,11 @@ cons_putc(int c)
 void
 cons_init(void)
 {
-	// cga_init();
-	// kbd_init();
-	// serial_init();
+	cga_init();
+	kbd_init();
+	serial_init();
 
-	// if (!serial_exists)
+	if (!serial_exists)
 		cprintf("Serial port does not exist!\n");
 }
 
@@ -459,7 +459,7 @@ int
 getchar(void)
 {
 	int c;
-
+	cprintf("Entered get char\n");
 	while ((c = cons_getc()) == 0)
 		/* do nothing */;
 	return c;

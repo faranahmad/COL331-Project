@@ -98,6 +98,11 @@ table:
  _alltraps:
  	pushl %ds
  	pushl %es
+ 	# pushl %cr3
+ 	# pushl %cr2
+ 	# pushl %cr1
+ 	# pushl %cr0
+ 	# pushal
  	pushal
  	movl $GD_KD, %eax
  	movw %ax, %ds

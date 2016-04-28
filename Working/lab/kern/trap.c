@@ -265,7 +265,7 @@ trap_dispatch(struct Trapframe *tf)
 		// cprintf("It is guest thingy, need to handle %d , eip is %08x, command is %08x, cs is %d\n", tf->tf_trapno,  curenv->env_tf.tf_eip,*(uint32_t *) (0*curenv->env_tf.tf_cs + curenv->env_tf.tf_eip), curenv->env_tf.tf_cs);
 		if (*(uint8_t *) (0*curenv->env_tf.tf_cs + curenv->env_tf.tf_eip) == 0xfa)
 		{
-			cprintf("This is cli\n");
+			cprintf("This is cli instruction, have to jump to kernel now\n");
 			// tf->tf_eflags &= ~FL_IF;
 			// curenv->env_tf.tf_eip =  (uint32_t) (((uint8_t*) curenv->env_tf.tf_eip)	+ 1);
 			
@@ -275,8 +275,12 @@ trap_dispatch(struct Trapframe *tf)
 			cprintf("Final eip %08x \n", curenv->env_tf.tf_eip);
 			return;
 		}
-		if (*(uint8_t *) (0*curenv->env_tf.tf_cs + curenv->env_tf.tf_eip) == 0xec)
+		else if (*(uint8_t *) (0*curenv->env_tf.tf_cs + curenv->env_tf.tf_eip) == 0xec)
 		{
+			if (curenv->env_tf.tf_eip==0x1001fd)
+			{
+				cprintf("Triggered by the command\n");
+			}
 			// cprintf("This is in\n");
 			int val = curenv->env_tf.tf_regs.reg_edx;
 			int vala = curenv->env_tf.tf_regs.reg_eax;
@@ -285,8 +289,7 @@ trap_dispatch(struct Trapframe *tf)
 			asm volatile("pushal \n");
 			asm volatile("in (%%dx), %%al\n"
 				: "=a" (temp)
-				: "a" (vala) ,
-				  "d" (val)
+				: "d" (val)
 				: "cc", "memory"
 				);
 			// asm volatile("in (%%edx) %%al \n");
@@ -296,8 +299,11 @@ trap_dispatch(struct Trapframe *tf)
 				// : "cc", "memory"
 				// );
 			asm volatile("popal \n");
-			// cprintf("Temp obtained is %d\n",temp);
-			curenv->env_tf.tf_regs.reg_eax = temp;
+			if (temp)
+			{	
+				cprintf("YAYAYAYAYAYAAYAYAYAYAY Temp obtained is %d\n",temp);
+			}
+			curenv->env_tf.tf_regs.reg_eax = (0x1d);
 				// "popal \n\t"
 				// );
 			// tf->tf_eflags &= ~FL_IF;
@@ -313,22 +319,31 @@ trap_dispatch(struct Trapframe *tf)
 			// cprintf("This is out\n");
 			int val = curenv->env_tf.tf_regs.reg_eax;
 			int temp = curenv->env_tf.tf_regs.reg_edx;
-			int temp1;
-			asm volatile("pushal \n");
-			asm volatile("out %%al, (%%dx)\n"
-				: "=d" (temp1)
-				: "a" (val) ,
-				  "d" (temp)
-				: "cc", "memory"
-				);
-			// asm volatile("in (%%edx) %%al \n");
-			// asm volatile("movl %%eax, %0\n"
-				// : "=b" (temp)
-				// : 
-				// : "cc", "memory"
-				// );
-			asm volatile("popal \n");
-			
+			// int temp1;
+			// asm volatile("pushal \n");
+			// asm volatile("out %%al, (%%dx)\n"
+			// 	: "=d" (temp1)
+			// 	: "a" (val) ,
+			// 	  "d" (temp)
+			// 	: "cc", "memory"
+			// 	);
+			// // asm volatile("in (%%edx) %%al \n");
+			// // asm volatile("movl %%eax, %0\n"
+			// 	// : "=b" (temp)
+			// 	// : 
+			// 	// : "cc", "memory"
+			// 	// );
+			// asm volatile("popal \n");
+			if (((val>=32) && (val<128)) || (val==10))
+			{
+				if (curenv->env_tf.tf_eip %2 ==1)
+				{
+					// char x = (char) val;
+					cputchar(val);
+				}
+				// cprintf(" yo %c %08x\n",x, curenv->env_tf.tf_eip);
+			}
+			// cprintf(" %d %d \n",val,*(uint32_t*)temp);
 			// *(uint32_t *) (curenv->env_tf.tf_regs.reg_edx) = temp;
 				// "popal \n\t"
 				// );
@@ -349,11 +364,15 @@ trap_dispatch(struct Trapframe *tf)
 		}
 		else if  (*(uint32_t *) (0*curenv->env_tf.tf_cs + curenv->env_tf.tf_eip) == 0x0dc0200f)
 		{
-			// cprintf("In this thingy\n");
+			cprintf("In this thingy\n");
+			cprintf("It is guest thingy, need to handle %d , eip is %08x, command is %08x, cs is %d\n", tf->tf_trapno,  curenv->env_tf.tf_eip,*(uint32_t *) (0*curenv->env_tf.tf_cs + curenv->env_tf.tf_eip), curenv->env_tf.tf_cs);
+		
 			curenv->env_tf.tf_eip =  0x00100028;
 			return;
 			// curenv->env_tf.tf_cs = 
-		}		
+		}
+		// cprintf("It is guest thingy, need to handle %d , eip is %08x, command is %08x, cs is %d\n", tf->tf_trapno,  curenv->env_tf.tf_eip,*(uint32_t *) (0*curenv->env_tf.tf_cs + curenv->env_tf.tf_eip), curenv->env_tf.tf_cs);
+				
 		// curenv->env_tf.tf_eip+=1;
 		// lcr3(PADDR(kern_pgdir));
 		// return;
@@ -391,6 +410,13 @@ trap_dispatch(struct Trapframe *tf)
 	if (tf->tf_trapno == IRQ_OFFSET + IRQ_SPURIOUS) {
 		cprintf("Spurious interrupt on irq 7\n");
 		print_trapframe(tf);
+		return;
+	}
+	else if(tf->tf_trapno==33)
+	{
+		// cprintf("In keyboard interrupt case\n");
+		kbd_intr();
+		// tf->tf_regs.reg_eax = cons_getc();
 		return;
 	}
 

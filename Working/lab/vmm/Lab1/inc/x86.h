@@ -44,7 +44,7 @@ breakpoint(void)
 static __inline uint8_t
 inb(int port)
 {
-	uint8_t data;
+	uint32_t data;
 	__asm __volatile("inb %w1,%0" : "=a" (data) : "d" (port));
 	return data;
 }

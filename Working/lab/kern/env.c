@@ -609,6 +609,11 @@ env_pop_tf(struct Trapframe *tf)
 	// Record the CPU we are running on for user-space debugging
 	curenv->env_cpunum = cpunum();
 
+		// 	"\tpopl %%cr0\n"
+		// "\tpopl %%cr1\n"
+		// "\tpopl %%cr2\n"
+		// "\tpopl %%cr3\n"
+
 	__asm __volatile("movl %0,%%esp\n"
 		"\tpopal\n"
 		"\tpopl %%es\n"

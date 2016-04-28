@@ -57,6 +57,11 @@ struct PushRegs {
 
 struct Trapframe {
 	struct PushRegs tf_regs;
+	// struct PushRegs tf_regs2;
+	// uint32_t tf_cr0;
+	// uint32_t tf_cr1;
+	// uint32_t tf_cr2;
+	// uint32_t tf_cr3;
 	uint16_t tf_es;
 	uint16_t tf_padding1;
 	uint16_t tf_ds;

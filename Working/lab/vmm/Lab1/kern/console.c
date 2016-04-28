@@ -319,11 +319,15 @@ kbd_proc_data(void)
 	int c;
 	uint8_t data;
 	static uint32_t shift;
-
-	if ((inb(KBSTATP) & KBS_DIB) == 0)
+	int x = inb(KBSTATP);
+	if ((x & KBS_DIB) == 0)
+	{
+		cprintf("Returning -1 %08x\n",x);
 		return -1;
-
+	}
+	cprintf("Going to data read\n");
 	data = inb(KBDATAP);
+	cprintf("Data read is %d\n",data);
 
 	if (data == 0xE0) {
 		// E0 escape character
@@ -364,7 +368,9 @@ kbd_proc_data(void)
 void
 kbd_intr(void)
 {
+	cprintf("Entered kbdintr\n");
 	cons_intr(kbd_proc_data);
+	cprintf("Exiting kbdintr\n");
 }
 
 static void

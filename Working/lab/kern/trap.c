@@ -303,6 +303,7 @@ trap_dispatch(struct Trapframe *tf)
 			// {	
 			// 	cprintf("YAYAYAYAYAYAAYAYAYAYAY Temp obtained is %d\n",temp);
 			// }
+			// cprintf("val %d\n",val);
 			curenv->env_tf.tf_regs.reg_eax = inb(val);
 			// curenv->env_tf.tf_regs.reg_eax = getchar_unlocked();
 				// "popal \n\t"
@@ -374,6 +375,12 @@ trap_dispatch(struct Trapframe *tf)
 			return;
 			// curenv->env_tf.tf_cs = 
 		}
+		// else
+		// {
+		// 	cprintf("Destroying env\n");
+		// 	env_destroy(curenv);
+		// 	return;
+		// }
 		// cprintf("It is guest thingy, need to handle %d , eip is %08x, command is %08x, cs is %d\n", tf->tf_trapno,  curenv->env_tf.tf_eip,*(uint32_t *) (0*curenv->env_tf.tf_cs + curenv->env_tf.tf_eip), curenv->env_tf.tf_cs);
 				
 		// curenv->env_tf.tf_eip+=1;
@@ -431,8 +438,14 @@ trap_dispatch(struct Trapframe *tf)
 		sched_yield();
 	}
 	// Unexpected trap: The user process or the kernel has a bug.
-	
-	cprintf("i m here\n");
+	if (curenv->env_type==ENV_TYPE_GUEST)
+	{
+		cprintf("Destroying env\n");
+		env_destroy(curenv);
+		return;		
+	}
+
+	// cprintf("i m here\n");
 	print_trapframe(tf);
 	if (tf->tf_cs == GD_KT)
 		panic("unhandled trap in kernel");

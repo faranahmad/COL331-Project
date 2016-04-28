@@ -1,0 +1,44 @@
+1) The type of x should be uintptr_t. 
+	If x has to be dereferenced to get the value then it will not be possible in the case of physaddr_t
+
+2) 
+	ENTRY 			BASE VIRTUAL ADDRESS			POINTS TO
+	1023			0xffc00000						Top 4MB of Physical Memory Page Table
+	1022			
+	---
+	960				0xf0000000						Bottom 4MB of Physical Memory Page Table
+	959				0xefc00000						Kernel Stack
+	-
+	957				0xef400000						Kernel page directory
+	956 			0xef000000						Page Table for pages
+	-
+	-
+	-
+	-
+	-
+	2				0x00400000						Free 
+	1				0x00000000						Free
+	
+
+3) The user programs will not be able to read or write to kernel pages. The privilege level  of user programs is higher than kernel and the pages of the kernel can only be accessed by programs with a lower privilege level. The PTE_U bit in the page table contains this information.
+
+4) The maximum amount of physical memory that this OS can support is 256MB. This is because the amount of memory between Kernbase and 0xffffffff has to be mapped and anything more than this cannot be accessed. The Kernbase is at 0xf0000000. 
+
+5) The overhead for the memory management is the size of the page directory, page tables and page info as these are additional data which need to be stored. 
+	The size for page directory : 4 KB
+	The size for page tables	: (256MB/4KB)/1024 * 4KB  = 262144 Bytes = 256KB
+	The size for page info 		: Number of Pages*Size of struct = 65536*8 Bytes = 512KB
+	=> Total extra size 		: 4KB + 256KB + 512KB = 772 KB
+
+	A possible way to reduce this is to use large pages as then the number of pages will reduce and the overheads for page info an page tables will come down.
+
+6) We transition to running EIP above kernbase is when we use do a jmp to relocated address. The instruction is : 
+"	mov	$relocated, %eax
+	jmp	*%eax"
+This is possible because both 0-4MB and Kernbase to Kernbase + 4 MB are mapped to the same physical physical region. The transition is necessary because we will set up new page directory to replace the entry_pgdir.
+
+
+Learning:
+1) What a triple page fault means and how to debug to resolve this. I experimented with modifying different values as well to understand when and how this happens.
+2) Learned how size of a struct is calculated and how it is different from what we theoretically expect. Extra bits are added to each element to ensure that the size is in multiples of 4 bytes.
+3) I understood the difference between different types which basically mean the same thing but have subtle differences in terms of dereferencing and accessing memory 

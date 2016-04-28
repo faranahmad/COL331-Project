@@ -51,7 +51,10 @@ static int
 serial_proc_data(void)
 {
 	if (!(inb(COM1+COM_LSR) & COM_LSR_DATA))
+	{
+		// cprintf("ret -1\n");
 		return -1;
+	}
 	return inb(COM1+COM_RX);
 }
 
@@ -59,7 +62,10 @@ void
 serial_intr(void)
 {
 	if (serial_exists)
+	{
+		// cprintf("Serial exists,going to ser proc\n");
 		cons_intr(serial_proc_data);
+	}
 }
 
 static void
@@ -322,7 +328,7 @@ kbd_proc_data(void)
 	int x = inb(KBSTATP);
 	if ((x & KBS_DIB) == 0)
 	{
-		cprintf("Returning -1 %08x\n",x);
+		// cprintf("Returning -1 %08x\n",x);
 		return -1;
 	}
 	cprintf("Going to data read\n");
@@ -368,9 +374,9 @@ kbd_proc_data(void)
 void
 kbd_intr(void)
 {
-	cprintf("Entered kbdintr\n");
+	// cprintf("Entered kbdintr\n");
 	cons_intr(kbd_proc_data);
-	cprintf("Exiting kbdintr\n");
+	// cprintf("Exiting kbdintr\n");
 }
 
 static void
@@ -399,14 +405,17 @@ static void
 cons_intr(int (*proc)(void))
 {
 	int c;
-
-	while ((c = (*proc)()) != -1) {
+	// cprintf("In consintr\n");
+	while ((c = (*proc)()) != -1) 
+	{
+		// cprintf("val c %d\n",c);
 		if (c == 0)
 			continue;
 		cons.buf[cons.wpos++] = c;
 		if (cons.wpos == CONSBUFSIZE)
 			cons.wpos = 0;
 	}
+	// cprintf("exit consintr\n");
 }
 
 // return the next input character from the console, or 0 if none waiting
@@ -418,8 +427,11 @@ cons_getc(void)
 	// poll for any pending input characters,
 	// so that this function works even when interrupts are disabled
 	// (e.g., when called from the kernel monitor).
+	// cprintf("Entering serial intr\n");
 	serial_intr();
+	// cprintf("Returned from serial intr\n");
 	kbd_intr();
+	// cprintf("Returned from kbd intr\n");
 
 	// grab the next character from the input buffer.
 	if (cons.rpos != cons.wpos) {
@@ -465,7 +477,7 @@ int
 getchar(void)
 {
 	int c;
-	cprintf("Entered get char\n");
+	// cprintf("Entered get char\n");
 	while ((c = cons_getc()) == 0)
 		/* do nothing */;
 	return c;

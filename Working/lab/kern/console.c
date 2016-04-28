@@ -471,6 +471,12 @@ getchar(void)
 	return c;
 }
 
+int getchar_unlocked(void)
+{
+	// int c;
+	return cons_getc();
+}
+
 int
 iscons(int fdnum)
 {

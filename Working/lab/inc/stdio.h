@@ -10,6 +10,7 @@
 // lib/stdio.c
 void	cputchar(int c);
 int	getchar(void);
+// int getchar_unlocked(void);
 int	iscons(int fd);
 
 // lib/printfmt.c

@@ -17,6 +17,8 @@
 #define CRT_COLS	80
 #define CRT_SIZE	(CRT_ROWS * CRT_COLS)
 
+int getchar_unlocked(void);
+
 void cons_init(void);
 int cons_getc(void);
 

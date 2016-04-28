@@ -277,33 +277,34 @@ trap_dispatch(struct Trapframe *tf)
 		}
 		else if (*(uint8_t *) (0*curenv->env_tf.tf_cs + curenv->env_tf.tf_eip) == 0xec)
 		{
-			if (curenv->env_tf.tf_eip==0x1001fd)
+			if (curenv->env_tf.tf_eip==0x1001d9)
 			{
-				cprintf("Triggered by the command\n");
+				// cprintf("Triggered by the command\n");
 			}
 			// cprintf("This is in\n");
 			int val = curenv->env_tf.tf_regs.reg_edx;
-			int vala = curenv->env_tf.tf_regs.reg_eax;
+			// int vala = curenv->env_tf.tf_regs.reg_eax;
 			
-			int temp;
-			asm volatile("pushal \n");
-			asm volatile("in (%%dx), %%al\n"
-				: "=a" (temp)
-				: "d" (val)
-				: "cc", "memory"
-				);
-			// asm volatile("in (%%edx) %%al \n");
-			// asm volatile("movl %%eax, %0\n"
-				// : "=b" (temp)
-				// : 
-				// : "cc", "memory"
-				// );
-			asm volatile("popal \n");
-			if (temp)
-			{	
-				cprintf("YAYAYAYAYAYAAYAYAYAYAY Temp obtained is %d\n",temp);
-			}
-			curenv->env_tf.tf_regs.reg_eax = (0x1d);
+			// int temp;
+			// asm volatile("pushal \n");
+			// asm volatile("in (%%dx), %%al\n"
+			// 	: "=a" (temp)
+			// 	: "d" (val)
+			// 	: "cc", "memory"
+			// 	);
+			// // asm volatile("in (%%edx) %%al \n");
+			// // asm volatile("movl %%eax, %0\n"
+			// 	// : "=b" (temp)
+			// 	// : 
+			// 	// : "cc", "memory"
+			// 	// );
+			// asm volatile("popal \n");
+			// if (temp)
+			// {	
+			// 	cprintf("YAYAYAYAYAYAAYAYAYAYAY Temp obtained is %d\n",temp);
+			// }
+			curenv->env_tf.tf_regs.reg_eax = inb(val);
+			// curenv->env_tf.tf_regs.reg_eax = getchar_unlocked();
 				// "popal \n\t"
 				// );
 			// tf->tf_eflags &= ~FL_IF;
@@ -334,6 +335,8 @@ trap_dispatch(struct Trapframe *tf)
 			// 	// : "cc", "memory"
 			// 	// );
 			// asm volatile("popal \n");
+			// outb(temp,val);
+			// outb(,val);
 			if (((val>=32) && (val<128)) || (val==10))
 			{
 				if (curenv->env_tf.tf_eip %2 ==1)
@@ -341,7 +344,7 @@ trap_dispatch(struct Trapframe *tf)
 					// char x = (char) val;
 					cputchar(val);
 				}
-				// cprintf(" yo %c %08x\n",x, curenv->env_tf.tf_eip);
+			// 	// cprintf(" yo %c %08x\n",x, curenv->env_tf.tf_eip);
 			}
 			// cprintf(" %d %d \n",val,*(uint32_t*)temp);
 			// *(uint32_t *) (curenv->env_tf.tf_regs.reg_edx) = temp;

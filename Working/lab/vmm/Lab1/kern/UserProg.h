@@ -8,7 +8,7 @@
 int User_Factorial(int argc, char** argv);
 int User_Fibonacci(int argc, char** argv);
 void User_Date(int argc, char** argv);
-// int User_Echo(int argc, char** argv);
-// int User_Cal(int argc, char** argv);
+void User_Echo(int argc, char** argv);
+void User_Cal(int argc, char** argv);
 
 #endif

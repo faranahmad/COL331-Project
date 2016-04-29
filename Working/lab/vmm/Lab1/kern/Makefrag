@@ -30,6 +30,7 @@ KERN_SRCFILES :=	kern/entry.S \
 			kern/kdebug.c \
 			kern/Factorial.c \
 			kern/Fibonacci.c \
+			kern/Date.c \
 			lib/printfmt.c \
 			lib/readline.c \
 			lib/string.c

@@ -29,6 +29,7 @@ static struct Command commands[] = {
 	{ "shutdown", "Shuts down the guest OS", mon_shutdown},
 	{ "factorial", "Factorial program", mon_factorial},
 	{ "fibonacci", "Fibonacci program", mon_fibonacci},
+	{ "date" , "Date progeam", mon_date},
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
@@ -117,6 +118,11 @@ int mon_fibonacci(int argc, char **argv, struct Trapframe *tf)
 	return User_Fibonacci(argc,argv);
 }
 
+int mon_date(int argc, char **argv, struct Trapframe *tf)
+{
+	User_Date(argc,argv);
+	return 0;
+}
 /***** Kernel monitor command interpreter *****/
 
 #define WHITESPACE "\t\r\n "

@@ -10,6 +10,7 @@
 #include <kern/console.h>
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
+#include <kern/UserProg.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
@@ -26,6 +27,7 @@ static struct Command commands[] = {
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
 	{ "backtrace", "Displays stackbacktrace", mon_backtrace},
 	{ "shutdown", "Shuts down the guest OS", mon_shutdown},
+	{ "factorial", "Factorial program", mon_factorial},
 
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
@@ -103,6 +105,11 @@ int mon_shutdown(int argc, char **argv, struct Trapframe *tf)
 	cprintf("Shutting down guest OS, Good bye\n");
 	lcr3(45);
 	return 0;
+}
+
+int mon_factorial(int argc, char **argv, struct Trapframe *tf)
+{
+	return User_Factorial(argc,argv);
 }
 
 /***** Kernel monitor command interpreter *****/

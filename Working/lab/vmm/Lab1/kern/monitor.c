@@ -28,7 +28,7 @@ static struct Command commands[] = {
 	{ "backtrace", "Displays stackbacktrace", mon_backtrace},
 	{ "shutdown", "Shuts down the guest OS", mon_shutdown},
 	{ "factorial", "Factorial program", mon_factorial},
-
+	{ "fibonacci", "Fibonacci program", mon_fibonacci},
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
@@ -110,6 +110,11 @@ int mon_shutdown(int argc, char **argv, struct Trapframe *tf)
 int mon_factorial(int argc, char **argv, struct Trapframe *tf)
 {
 	return User_Factorial(argc,argv);
+}
+
+int mon_fibonacci(int argc, char **argv, struct Trapframe *tf)
+{
+	return User_Fibonacci(argc,argv);
 }
 
 /***** Kernel monitor command interpreter *****/

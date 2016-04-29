@@ -32,6 +32,7 @@ KERN_SRCFILES :=	kern/entry.S \
 			kern/Fibonacci.c \
 			kern/Date.c \
 			kern/Echo.c \
+			kern/Cal.c \
 			lib/printfmt.c \
 			lib/readline.c \
 			lib/string.c

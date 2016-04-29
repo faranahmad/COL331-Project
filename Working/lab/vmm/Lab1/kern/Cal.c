@@ -81,7 +81,7 @@ static void fill_rtcdate(struct rtcdate *r)
 }
 
 // qemu seems to use 24-hour GWT and the values are BCD encoded
-void cmostime(struct rtcdate *r)
+void cmostime1(struct rtcdate *r)
 {
   struct rtcdate t1, t2;
   int sb, bcd;
@@ -225,7 +225,7 @@ void User_Cal(int argc,char** argv)
 	if(argc == 1)
 	{
 		struct rtcdate r;
-		cmostime(&r);
+		cmostime1(&r);
 		daycode = determinedaycode(r.year);
 		determineleapyear(r.year);
 		monthcal(r.year,daycode,r.month);
@@ -233,7 +233,7 @@ void User_Cal(int argc,char** argv)
 	else
 	{
 		char *ptr;
-		// year = strtol(argv[1],&ptr,10);
+		year = strtol(argv[1],&ptr,10);
 		cprintf("Input year: %d\n",year);
 		daycode = determinedaycode(year);
 		determineleapyear(year);

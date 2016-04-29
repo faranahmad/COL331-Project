@@ -31,6 +31,7 @@ static struct Command commands[] = {
 	{ "fibonacci", "Fibonacci program", mon_fibonacci},
 	{ "date" , "Date progeam", mon_date},
 	{ "echo" , "Echo program", mon_echo},
+	{ "cal" , "Calendar program", mon_cal},
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
@@ -128,6 +129,12 @@ int mon_date(int argc, char **argv, struct Trapframe *tf)
 int mon_echo(int argc, char **argv, struct Trapframe *tf)
 {
 	User_Echo(argc,argv);
+	return 0;
+}
+
+int mon_cal(int argc, char **argv, struct Trapframe *tf)
+{
+	User_Cal(argc,argv);
 	return 0;
 }
 /***** Kernel monitor command interpreter *****/

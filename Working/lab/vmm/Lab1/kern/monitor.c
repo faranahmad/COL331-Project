@@ -30,6 +30,7 @@ static struct Command commands[] = {
 	{ "factorial", "Factorial program", mon_factorial},
 	{ "fibonacci", "Fibonacci program", mon_fibonacci},
 	{ "date" , "Date progeam", mon_date},
+	{ "echo" , "Echo program", mon_echo},
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 

@@ -124,6 +124,12 @@ int mon_date(int argc, char **argv, struct Trapframe *tf)
 	User_Date(argc,argv);
 	return 0;
 }
+
+int mon_echo(int argc, char **argv, struct Trapframe *tf)
+{
+	User_Echo(argc,argv);
+	return 0;
+}
 /***** Kernel monitor command interpreter *****/
 
 #define WHITESPACE "\t\r\n "
